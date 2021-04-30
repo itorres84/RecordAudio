@@ -7,6 +7,9 @@
 
 import UIKit
 import AVFoundation
+import Firebase
+import RxSwift
+import FirebaseDatabase
 
 class ViewController: UIViewController, AVAudioRecorderDelegate, AVAudioPlayerDelegate {
     
@@ -18,6 +21,9 @@ class ViewController: UIViewController, AVAudioRecorderDelegate, AVAudioPlayerDe
     var soundPlayer: AVAudioPlayer!
     var recordingSession: AVAudioSession!
     var audioRecorder: AVAudioRecorder!
+    
+    let message = BehaviorSubject<String>(value: "")
+    let disposeBag = DisposeBag()
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -40,6 +46,50 @@ class ViewController: UIViewController, AVAudioRecorderDelegate, AVAudioPlayerDe
             // failed to record!
         }
         
+//        message.subscribe(onNext: { message in
+//
+//            guard let data = Data(base64Encoded: message, options: .ignoreUnknownCharacters) else { return }
+//
+//            do {
+//
+//                self.soundPlayer = try AVAudioPlayer(data: data)
+//                self.soundPlayer.prepareToPlay()
+//                self.soundPlayer.delegate = self
+//                self.soundPlayer.volume = 1.0
+//
+//                self.soundPlayer.play()
+//
+//            } catch {
+//                print(error.localizedDescription)
+//            }
+//
+//
+//        }).disposed(by: disposeBag)
+        
+        var ref: DatabaseReference!
+        ref = Database.database().reference()
+        
+        ref.child("messanges").observe(DataEventType.value) { dataSnapshot in
+            
+            guard let message = dataSnapshot.value as? String,
+                  let data = Data(base64Encoded: message, options: .ignoreUnknownCharacters)else { return }
+
+            do {
+                
+                self.soundPlayer = try AVAudioPlayer(data: data)
+                self.soundPlayer.prepareToPlay()
+                self.soundPlayer.delegate = self
+                self.soundPlayer.volume = 1.0
+                
+                self.soundPlayer.play()
+                
+            } catch {
+                print(error.localizedDescription)
+            }
+            
+            
+        }
+
     }
     
     func setupRecorder() {
@@ -133,7 +183,20 @@ class ViewController: UIViewController, AVAudioRecorderDelegate, AVAudioPlayerDe
         btnPlay.isEnabled = true
         
         //TODO: Firebase Node Save
+        print(recorder.url)
         
+        do {
+            
+            let audioData = try Data(contentsOf: recorder.url)
+            
+            let base64audio = audioData.base64EncodedString()
+            self.sendFirebase(messange: base64audio)
+            
+        } catch {
+            
+            debugPrint(error.localizedDescription)
+            
+        }
         
         
     }
@@ -143,6 +206,19 @@ class ViewController: UIViewController, AVAudioRecorderDelegate, AVAudioPlayerDe
         soundPlayer.stop()
         btnPlay.tintColor = .systemBlue
         btnPlay.tag = 0
+        
+    }
+    
+    func sendFirebase(messange: String)  {
+        
+        print(messange)
+        
+        //self.message.onNext(messange)
+        
+        var ref: DatabaseReference!
+
+        ref = Database.database().reference()
+        ref.child("messanges").setValue(messange)
         
     }
     
